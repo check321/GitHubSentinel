@@ -7,6 +7,9 @@ from report_generator import ReportGenerator
 from subscription_manager import SubscriptionManager
 import threading
 import shlex
+import json
+import os
+from datetime import datetime
 
 def run_scheduler(scheduler):
     scheduler.start()
@@ -28,9 +31,31 @@ def list_subscriptions(subscription_manager):
 def fetch_updates(github_client, subscription_manager, report_generator):
     subscriptions = subscription_manager.get_subscriptions()
     updates = github_client.fetch_updates(subscriptions)
+    # print updates with pretty format 
+    print(f"Updates fetched: {json.dumps(updates, indent=4)}")
     report = report_generator.generate(updates)
     print("Updates fetched:")
     print(report)
+
+def export_updates(github_client, subscription_manager, report_generator):
+    """导出更新到markdown文件"""
+    updates = github_client.fetch_updates(subscription_manager.get_subscriptions())
+    report = report_generator.generate(updates)
+    
+    # 创建exports目录(如果不存在)
+    if not os.path.exists('exports'):
+        os.makedirs('exports')
+    
+    # 生成文件名
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"github_updates_{timestamp}.md"
+    filepath = os.path.join('exports', filename)
+    
+    # 写入文件
+    with open(filepath, 'w', encoding='utf-8') as f:
+        f.write(report)
+    
+    print(f"报告已导出到: {filepath}")
 
 def print_help():
     help_text = """
@@ -41,6 +66,7 @@ Available commands:
   remove <repo>    Remove a subscription (e.g., owner/repo)
   list             List all subscriptions
   fetch            Fetch updates immediately
+  export           Export updates to markdown file
   help             Show this help message
   exit             Exit the tool
   quit             Exit the tool
@@ -82,6 +108,9 @@ def main():
     
     parser_fetch = subparsers.add_parser('fetch', help='Fetch updates immediately')
     parser_fetch.set_defaults(func=lambda args: fetch_updates(github_client, subscription_manager, report_generator))
+    
+    parser_export = subparsers.add_parser('export', help='Export updates to markdown file')
+    parser_export.set_defaults(func=lambda args: export_updates(github_client, subscription_manager, report_generator))
     
     parser_help = subparsers.add_parser('help', help='Show this help message')
     parser_help.set_defaults(func=lambda args: print_help())
