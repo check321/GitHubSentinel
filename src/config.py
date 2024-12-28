@@ -30,6 +30,10 @@ class Config:
             self.openai_max_tokens = openai_config.get('max_tokens', 5000)
             self.openai_temperature = openai_config.get('temperature', 0.7)
             self.openai_system_prompt = openai_config.get('system_prompt', '')
+            self.prompt_dir = openai_config.get('prompt_dir', 'prompt')
+            
+            # 确保prompt目录存在
+            os.makedirs(self.prompt_dir, exist_ok=True)
             
             # 导出配置
             self.exports_config = config.get('exports', {})

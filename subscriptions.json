@@ -1,3 +1,4 @@
 [
-    "langgenius/dify"
+    "langgenius/dify",
+    "langchain-ai/langchain"
 ]

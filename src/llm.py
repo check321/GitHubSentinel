@@ -20,42 +20,33 @@ class LLMProcessor:
             print(f"Warning: Failed to initialize OpenAI client: {str(e)}")
             self.client = None
 
-    def generate_daily_report(self, markdown_content: str) -> str:
-        """使用OpenAI生成每日报告摘要"""
+    def generate_daily_report(self, markdown_content: str, repo: str, since: str, until: Optional[str] = None) -> str:
+        """使用OpenAI生成每日报告摘要
+        
+        Args:
+            markdown_content: 原始markdown内容
+            repo: 仓库名称
+            since: 开始日期
+            until: 结束日期（可选）
+        """
         if not self.client:
             return "AI摘要生成器未正确初始化，跳过摘要生成。"
-
-        prompt = f"""
-请分析以下GitHub仓库的更新内容，生成一个简洁的中文摘要报告。重点关注：
-1. 主要更新内容
-2. 重要的问题修复
-3. 新功能添加
-4. 值得注意的PR
-
-原始内容：
-{markdown_content}
-
-请以下面的格式输出：
-# 更新摘要
-[总体概述]
-
-## 主要更新
-- [更新点1]
-- [更新点2]
-
-## 重要修复
-- [修复1]
-- [修复2]
-
-## 新增功能
-- [功能1]
-- [功能2]
-
-## 其他说明
-[其他需要注意的事项]
-"""
-
+        
         try:
+            # 读取prompt模板
+            prompt_path = os.path.join('prompt', 'generate_daily_report.txt')
+            with open(prompt_path, 'r', encoding='utf-8') as f:
+                prompt_template = f.read()
+            
+            # 生成标题
+            if until:
+                title = f"# {repo}-{since}-{until} 更新摘要\n\n"
+            else:
+                title = f"# {repo}-{since} 更新摘要\n\n"
+            
+            # 填充内容
+            prompt = prompt_template.format(content=markdown_content)
+            
             response = self.client.chat.completions.create(
                 model=self.config.openai_model,
                 messages=[
@@ -68,13 +59,18 @@ class LLMProcessor:
                 temperature=self.config.openai_temperature,
                 max_tokens=self.config.openai_max_tokens,
             )
-            return response.choices[0].message.content
+            
+            # 在摘要前添加标题
+            return title + response.choices[0].message.content
 
+        except FileNotFoundError:
+            print(f"Error: Prompt template file not found at {prompt_path}")
+            return "无法加载提示词模板。"
         except Exception as e:
             print(f"Error generating report with OpenAI: {str(e)}")
             return "AI摘要生成失败，请检查网络连接和API配置。"
 
-    def append_summary(self, markdown_file: str) -> Optional[str]:
+    def append_summary(self, markdown_file: str, repo: str, since: str, until: Optional[str] = None) -> Optional[str]:
         """读取markdown文件并添加AI生成的摘要"""
         if not self.client:
             print("Warning: OpenAI client not initialized, skipping summary generation")
@@ -86,16 +82,15 @@ class LLMProcessor:
                 content = f.read()
 
             # 生成摘要
-            summary = self.generate_daily_report(content)
+            summary = self.generate_daily_report(content, repo, since, until)
 
             # 创建新的文件名
             new_file = self.config.get_summary_filepath(markdown_file)
 
             # 写入新文件
             with open(new_file, "w", encoding="utf-8") as f:
-                f.write("# AI 生成的更新摘要\n\n")
                 f.write(summary)
-                f.write("\n\n---\n\n# 原始更新内容\n\n")
+                f.write("\n\n---\n\n# 详细内容\n\n")
                 f.write(content)
 
             return new_file
