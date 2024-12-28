@@ -1,85 +1,24 @@
-import argparse
+import threading
 from config import Config
 from scheduler import Scheduler
 from github_client import GitHubClient
 from notifier import Notifier
 from report_generator import ReportGenerator
 from subscription_manager import SubscriptionManager
-import threading
-import shlex
-import json
-import os
-from datetime import datetime
+from cli import CLI
 
 def run_scheduler(scheduler):
     scheduler.start()
 
-def add_subscription(args, subscription_manager):
-    subscription_manager.add_subscription(args.repo)
-    print(f"Added subscription: {args.repo}")
-
-def remove_subscription(args, subscription_manager):
-    subscription_manager.remove_subscription(args.repo)
-    print(f"Removed subscription: {args.repo}")
-
-def list_subscriptions(subscription_manager):
-    subscriptions = subscription_manager.get_subscriptions()
-    print("Current subscriptions:")
-    for sub in subscriptions:
-        print(f"- {sub}")
-
-def fetch_updates(github_client, subscription_manager, report_generator):
-    subscriptions = subscription_manager.get_subscriptions()
-    updates = github_client.fetch_updates(subscriptions)
-    # print updates with pretty format 
-    print(f"Updates fetched: {json.dumps(updates, indent=4)}")
-    report = report_generator.generate(updates)
-    print("Updates fetched:")
-    print(report)
-
-def export_updates(github_client, subscription_manager, report_generator):
-    """导出更新到markdown文件"""
-    updates = github_client.fetch_updates(subscription_manager.get_subscriptions())
-    report = report_generator.generate(updates)
-    
-    # 创建exports目录(如果不存在)
-    if not os.path.exists('exports'):
-        os.makedirs('exports')
-    
-    # 生成文件名
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"github_updates_{timestamp}.md"
-    filepath = os.path.join('exports', filename)
-    
-    # 写入文件
-    with open(filepath, 'w', encoding='utf-8') as f:
-        f.write(report)
-    
-    print(f"报告已导出到: {filepath}")
-
-def print_help():
-    help_text = """
-GitHub Sentinel Command Line Interface
-
-Available commands:
-  add <repo>       Add a subscription (e.g., owner/repo)
-  remove <repo>    Remove a subscription (e.g., owner/repo)
-  list             List all subscriptions
-  fetch            Fetch updates immediately
-  export           Export updates to markdown file
-  help             Show this help message
-  exit             Exit the tool
-  quit             Exit the tool
-"""
-    print(help_text)
-
 def main():
+    # Initialize components
     config = Config()
-    github_client = GitHubClient(config.github_token)
+    github_client = GitHubClient(config)
     notifier = Notifier(config.notification_settings)
-    report_generator = ReportGenerator()
+    report_generator = ReportGenerator(config)
     subscription_manager = SubscriptionManager(config.subscriptions_file)
     
+    # Setup and start scheduler
     scheduler = Scheduler(
         github_client=github_client,
         notifier=notifier,
@@ -92,45 +31,14 @@ def main():
     scheduler_thread.daemon = True
     scheduler_thread.start()
 
-    parser = argparse.ArgumentParser(description='GitHub Sentinel Command Line Interface')
-    subparsers = parser.add_subparsers(title='Commands', dest='command')
-    
-    parser_add = subparsers.add_parser('add', help='Add a subscription')
-    parser_add.add_argument('repo', type=str, help='The repository to subscribe to (e.g., owner/repo)')
-    parser_add.set_defaults(func=lambda args: add_subscription(args, subscription_manager))
-    
-    parser_remove = subparsers.add_parser('remove', help='Remove a subscription')
-    parser_remove.add_argument('repo', type=str, help='The repository to unsubscribe from (e.g., owner/repo)')
-    parser_remove.set_defaults(func=lambda args: remove_subscription(args, subscription_manager))
-    
-    parser_list = subparsers.add_parser('list', help='List all subscriptions')
-    parser_list.set_defaults(func=lambda args: list_subscriptions(subscription_manager))
-    
-    parser_fetch = subparsers.add_parser('fetch', help='Fetch updates immediately')
-    parser_fetch.set_defaults(func=lambda args: fetch_updates(github_client, subscription_manager, report_generator))
-    
-    parser_export = subparsers.add_parser('export', help='Export updates to markdown file')
-    parser_export.set_defaults(func=lambda args: export_updates(github_client, subscription_manager, report_generator))
-    
-    parser_help = subparsers.add_parser('help', help='Show this help message')
-    parser_help.set_defaults(func=lambda args: print_help())
-
-    # Print help on startup
-    print_help()
-
-    while True:
-        try:
-            user_input = input("GitHub Sentinel> ")
-            if user_input in ["exit", "quit"]:
-                print("Exiting GitHub Sentinel...")
-                break
-            args = parser.parse_args(shlex.split(user_input))
-            if args.command is not None:
-                args.func(args)
-            else:
-                parser.print_help()
-        except Exception as e:
-            print(f"Error: {e}")
+    # Start CLI
+    cli = CLI(
+        github_client=github_client,
+        subscription_manager=subscription_manager,
+        report_generator=report_generator,
+        config=config
+    )
+    cli.run()
 
 if __name__ == "__main__":
     main()
