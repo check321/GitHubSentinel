@@ -5,6 +5,7 @@ from github_client import GitHubClient
 from report_generator import ReportGenerator
 from subscription_manager import SubscriptionManager
 from llm import LLMProcessor
+from notifier import Notifier
 import os
 
 class GradioUI:
@@ -15,6 +16,7 @@ class GradioUI:
         self.report_generator = ReportGenerator(self.config)
         self.subscription_manager = SubscriptionManager(self.config.subscriptions_file)
         self.llm_processor = LLMProcessor(self.config)
+        self.notifier = Notifier(self.config.notification_settings)
 
     def load_subscriptions(self) -> list:
         """加载订阅列表"""
@@ -132,6 +134,28 @@ class GradioUI:
         except Exception as e:
             return f"读取文件失败: {str(e)}"
 
+    def send_email_report(self, report_content: str, repo: str) -> str:
+        """发送邮件报告
+        
+        Args:
+            report_content: 报告内容
+            repo: 仓库名称
+        
+        Returns:
+            str: 发送结果消息
+        """
+        try:
+            if not report_content or report_content == "Report will be displayed here...":
+                return "请先生成报告内容再发送邮件。"
+            
+            success = self.notifier.send_report(repo, report_content)
+            if success:
+                return f"✅ 邮件发送成功！收件人: {', '.join(self.config.notification_settings['email']['recipients'])}"
+            else:
+                return "❌ 邮件发送失败，请检查控制台输出了解详细错误信息。"
+        except Exception as e:
+            return f"❌ 邮件发送出错: {str(e)}"
+
     def create_ui(self):
         """创建Gradio界面"""
         # 获取默认日期（昨天）
@@ -178,6 +202,11 @@ class GradioUI:
                                 submit_btn = gr.Button("Generate Report", variant="primary")
                                 # 重置按钮
                                 reset_btn = gr.Button("Reset")
+                            
+                            # 发送邮件按钮
+                            email_btn = gr.Button("📧 Send Report via Email", variant="secondary")
+                            # 邮件发送结果
+                            email_result = gr.Markdown("邮件发送结果将显示在这里...")
                             
                             # 摘要文件列表
                             gr.Markdown("### Generated Reports")
@@ -380,6 +409,26 @@ class GradioUI:
                 outputs=[repo_dropdown, remove_dropdown, repo_list, result_info]
             )
             
+            # 绑定邮件发送事件
+            email_btn.click(
+                fn=self.send_email_report,
+                inputs=[output, repo_dropdown],
+                outputs=email_result
+            )
+            
+            # 清除邮件发送结果
+            submit_btn.click(
+                fn=lambda: "邮件发送结果将显示在这里...",
+                inputs=[],
+                outputs=email_result
+            )
+            
+            reset_btn.click(
+                fn=lambda: "邮件发送结果将显示在这里...",
+                inputs=[],
+                outputs=email_result
+            )
+            
         return interface
 
 def main():
@@ -389,7 +438,7 @@ def main():
     interface.launch(
         server_name="0.0.0.0",  # 允许外部访问
         server_port=7860,       # 默认端口
-        share=False             # 创建公共链接
+        share=False
     )
 
 if __name__ == "__main__":

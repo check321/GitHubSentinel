@@ -42,8 +42,31 @@ class Config:
             # 确保导出目录存在
             os.makedirs(self.exports_dir, exist_ok=True)
             
+            # 通知配置
+            self._notification_settings = {}
+            
+            # 从环境变量加载邮件配置
+            email_config = {
+                'enabled': True,  # 默认启用
+                'smtp_server': os.getenv('EMAIL_SMTP_SERVER'),
+                'smtp_port': int(os.getenv('EMAIL_SMTP_PORT', 465)),
+                'sender_email': os.getenv('EMAIL_SENDER'),
+                'sender_password': os.getenv('EMAIL_PASSWORD'),
+                'recipients': [email.strip() for email in os.getenv('EMAIL_RECIPIENTS', '').split(',') if email.strip()],
+                'subject_template': 'GitHub Updates: {repo} - {date}'
+            }
+            
+            # 验证必要的邮件配置
+            required_email_fields = ['smtp_server', 'sender_email', 'sender_password', 'recipients']
+            missing_fields = [field for field in required_email_fields if not email_config.get(field)]
+            
+            if missing_fields:
+                print(f"Warning: Missing email configuration fields: {', '.join(missing_fields)}")
+                email_config['enabled'] = False
+            
+            self._notification_settings['email'] = email_config
+            
             # 其他配置
-            self.notification_settings = config.get('notification_settings', {})
             self.subscriptions_file = config.get('subscriptions_file', 'subscriptions.json')
             self.update_interval = config.get('update_interval', 24 * 60 * 60)
 
@@ -84,3 +107,8 @@ class Config:
         file_path, ext = os.path.splitext(original_path)
         summary_suffix = self.exports_config.get('summary_suffix', '-with-summary')
         return f"{file_path}{summary_suffix}{ext}"
+
+    @property
+    def notification_settings(self) -> dict:
+        """获取通知设置"""
+        return self._notification_settings

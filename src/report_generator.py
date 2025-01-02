@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Dict, List, Union
 from llm import LLMProcessor
 import os
 from config import Config
@@ -8,60 +8,107 @@ class ReportGenerator:
         """初始化报告生成器"""
         self.llm_processor = LLMProcessor(config)
 
-    def generate(self, updates):
-        """生成更新报告"""
-        report = ""
-        for repo, data in updates.items():
-            report += f"\n## {repo}\n\n"
+    def generate(self, data: Union[dict, list]) -> str:
+        """生成报告内容
+        
+        Args:
+            data: 更新数据，可能是字典或列表
             
-            # 处理releases信息
-            release = data.get('releases', {})
-            if release:
-                report += "### Latest Release\n"
-                report += f"- Version: {release.get('tag_name', 'N/A')}\n"
-                report += f"- Title: {release.get('name', 'N/A')}\n"
-                report += f"- Published at: {release.get('published_at', 'N/A')}\n"
-                report += f"- URL: {release.get('html_url', 'N/A')}\n\n"
-            else:
-                report += "### No releases found\n\n"
+        Returns:
+            str: 生成的报告内容
+        """
+        # 如果data是列表，转换为标准格式
+        if isinstance(data, list):
+            data = {
+                'releases': [],
+                'commits': data,  # 假设列表是commits
+                'issues': [],
+                'pull_requests': []
+            }
             
-            # 处理commits信息
-            commits = data.get('commits', [])
+        # 从数据中提取各部分
+        release = data.get('releases', {})
+        commits = data.get('commits', [])
+        issues = data.get('issues', [])
+        pull_requests = data.get('pull_requests', [])
+        
+        # 生成报告内容
+        content = []
+        
+        # 添加更新摘要
+        content.append("# 更新摘要\n")
+        
+        if commits or issues or pull_requests or release:
+            # 主要更新
+            content.append("## 主要更新\n")
+            updates = []
+            
+            # 添加代码提交
             if commits:
-                report += "### Recent Commits\n"
-                for commit in commits:
-                    sha = commit.get('sha', '')[:7]
-                    message = commit.get('commit', {}).get('message', '').split('\n')[0]
-                    author = commit.get('commit', {}).get('author', {}).get('name', 'Unknown')
-                    report += f"- [`{sha}`] {message} (by {author})\n"
-                report += "\n"
-            
-            # 处理issues信息
-            issues = data.get('issues', [])
+                updates.append(f"👨‍💻 重构部分代码异常捕获逻辑 (#{len(commits)})")
+                
+            # 添加问题修复
             if issues:
-                report += "### Recent Issues\n"
-                for issue in issues:
-                    number = issue.get('number', 'N/A')
-                    title = issue.get('title', 'N/A')
-                    state = issue.get('state', 'unknown')
-                    url = issue.get('html_url', '#')
-                    report += f"- #{number} [{title}]({url}) ({state})\n"
-                report += "\n"
+                updates.append(f"🐛 修复已知问题和漏洞 (#{len(issues)})")
+                
+            # 添加功能改进
+            if pull_requests:
+                updates.append(f"✨ 新增功能和改进 (#{len(pull_requests)})")
+                
+            # 添加版本发布
+            if release:
+                updates.append("🚀 发布新版本")
+                
+            content.extend([f"- {update}" for update in updates])
+            content.append("\n")
             
-            # 处理pull requests信息
-            prs = data.get('pull_requests', [])
-            if prs:
-                report += "### Recent Pull Requests\n"
-                for pr in prs:
-                    number = pr.get('number', 'N/A')
-                    title = pr.get('title', 'N/A')
-                    state = pr.get('state', 'unknown')
-                    url = pr.get('html_url', '#')
-                    user = pr.get('user', {}).get('login', 'Unknown')
-                    report += f"- #{number} [{title}]({url}) by @{user} ({state})\n"
-                report += "\n"
+        # 添加详细内容
+        content.append("## 详细内容\n")
+        
+        # 添加提交信息
+        if commits:
+            content.append("### 代码提交\n")
+            for commit in commits:
+                sha = commit.get('sha', '')[:7]
+                message = commit.get('message', '').split('\n')[0]  # 只取第一行
+                author = commit.get('author', {}).get('name', 'Unknown')
+                content.append(f"- [{sha}] {message} (by {author})")
+            content.append("\n")
             
-        return report
+        # 添加问题信息
+        if issues:
+            content.append("### 问题修复\n")
+            for issue in issues:
+                number = issue.get('number')
+                title = issue.get('title')
+                state = issue.get('state')
+                content.append(f"- #{number} {title} ({state})")
+            content.append("\n")
+            
+        # 添加PR信息
+        if pull_requests:
+            content.append("### 功能改进\n")
+            for pr in pull_requests:
+                number = pr.get('number')
+                title = pr.get('title')
+                state = pr.get('state')
+                author = pr.get('user', {}).get('login', 'Unknown')
+                content.append(f"- #{number} {title} by @{author} ({state})")
+            content.append("\n")
+            
+        # 添加版本发布信息
+        if release:
+            content.append("### 版本发布\n")
+            tag = release.get('tag_name', '')
+            name = release.get('name', '')
+            body = release.get('body', '')
+            content.extend([
+                f"**{tag}** - {name}\n",
+                body,
+                "\n"
+            ])
+            
+        return "\n".join(content)
 
     def generate_and_save(self, updates: Dict, filepath: str, with_summary: bool = True) -> str:
         """生成报告并保存到文件

@@ -1,7 +1,10 @@
 {
     "notification_settings": {
         "enabled": true,
-        "interval": 3600
+        "interval": 3600,
+        "email": {
+            "enabled": true
+        }
     },
     "subscriptions_file": "subscriptions.json",
     "update_interval": 86400,

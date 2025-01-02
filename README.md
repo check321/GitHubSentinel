@@ -1,133 +1,140 @@
-# GitHub Sentinel
+# GitHubSentinel
 
-GitHub 仓库更新监控工具，支持多仓库订阅、自动生成日报和 AI 摘要。
+GitHub 仓库更新监控和报告生成工具
 
 ## 最近更新
 
-### 2024-01 新增功能
-- 添加了基于 Gradio 的 Web 界面，提供友好的图形化操作
-- 支持时间范围查询，可生成指定时间段的更新报告
-- 新增仓库订阅管理界面，支持可视化添加/删除订阅
-- 优化了报告展示，支持查看历史报告列表
-- 改进了 AI 摘要生成，支持多时间段的内容总结
+### 2024年1月
+- 📧 新增邮件推送功能
+  - 支持 HTML 邮件，自动渲染 Markdown 内容
+  - SSL 加密连接确保安全性
+  - 支持配置多个收件人
+  - 可自定义邮件模板
+- ⏰ 新增自动报告生成
+  - 支持后台周期性自动拉取更新
+  - 可配置更新检查间隔
+  - 自动生成并发送报告
+  - 错误重试机制确保稳定性
 
-## 功能特点
+## 功能特性
 
-- 多仓库订阅管理
-- GitHub 更新自动监控
-- AI 驱动的更新内容摘要
-- 美观的 Web 操作界面
-- 灵活的时间范围查询
-- Markdown 格式报告导出
+- 📊 自动监控 GitHub 仓库更新
+- 📝 生成结构化的更新报告
+- 🤖 使用 GPT 生成更新摘要
+- 📧 邮件通知功能
+  - SSL 加密连接
+  - Markdown 转 HTML 渲染
+  - 支持多收件人配置
+  - 自定义邮件模板
+- ⚡ 自动化功能
+  - 周期性检查更新
+  - 自动生成报告
+  - 自动发送邮件通知
+  - 错误自动重试
+- 🌐 Web 界面管理
+- 🔒 安全的配置管理
 
-## 使用方法
+## 快速开始
 
-### Web 界面使用（推荐）
-
-1. 启动 Web 服务：
+1. 克隆仓库并安装依赖：
 ```bash
-python src/gradio_server.py
-```
-
-2. 访问界面：
-- 打开浏览器访问 `http://localhost:7860`
-- 默认端口为 7860，可在启动时通过参数修改
-
-3. Report 功能：
-   - 选择要查看的仓库
-   - 设置查询时间：
-     - Since Date：开始日期（必填）
-     - Until Date：结束日期（可选，留空则只查看单天）
-   - 点击 "Generate Report" 生成报告
-   - 报告列表显示在左侧，可点击查看历史报告
-   - 使用 "Refresh List" 刷新报告列表
-   - "Reset" 按钮可重置所有输入
-
-4. RepoLib 功能：
-   - 添加仓库：
-     - 在输入框中输入仓库地址（格式：owner/repo）
-     - 点击 "Add Repository" 添加
-   - 删除仓库：
-     - 从下拉框选择要删除的仓库
-     - 点击 "Remove Repository" 删除
-   - 右侧可查看当前订阅的仓库列表
-
-### 命令行使用
-
-1. Install dependencies:
-    ```sh
-    pip install -r requirements.txt
-    ```
-
-2. Configure the application by editing `config.json`.
-
-3. Run the application:
-    ```sh
-    python src/main.py
-    ```
-
-## Configuration
-The configuration file `config.json` should contain the following settings:
-```json
-{
-    "github_token": "your_github_token",
-    "notification_settings": {
-        "email": "your_email@example.com",
-        "slack_webhook_url": "your_slack_webhook_url"
-    },
-    "subscriptions_file": "subscriptions.json",
-    "update_interval": 86400
-}
-```
-
-## 依赖安装
-
-```bash
+git clone <repo-url>
+cd GitHubSentinel
 pip install -r requirements.txt
 ```
 
-主要依赖：
-- gradio：Web 界面框架
-- openai：AI 摘要生成
-- PyGithub：GitHub API 调用
-- python-dotenv：环境变量管理
-[其他依赖...]
+2. 配置环境变量（复制 `.env.example` 为 `.env` 并填写）：
+```env
+# GitHub配置
+GITHUB_TOKEN=your_github_token
+
+# OpenAI配置
+OPENAI_API_KEY=your_openai_key
+OPENAI_BASE_URL=your_openai_base_url
+
+# 邮件配置
+EMAIL_SMTP_SERVER=smtp.example.com
+EMAIL_SMTP_PORT=465
+EMAIL_SENDER=your_email@example.com
+EMAIL_PASSWORD=your_email_password
+# 多个收件人用逗号分隔
+EMAIL_RECIPIENTS=recipient1@example.com,recipient2@example.com
+```
+
+3. 配置订阅（编辑 `subscriptions.json`）：
+```json
+[
+    "owner/repo1",
+    "owner/repo2"
+]
+```
+
+4. 启动服务：
+```bash
+# 启动后台监控服务（自动拉取更新并发送邮件）
+python src/main.py
+
+# 或启动 Web 界面
+python src/gradio_server.py
+```
+
+## 配置说明
+
+### 基础配置
+- `config.json`: 基本配置文件
+  - `update_interval`: 更新检查间隔（秒）
+  - `exports_config`: 导出配置
+  - `notification_settings`: 通知设置
+- `.env`: 环境变量配置
+- `subscriptions.json`: 仓库订阅列表
+
+### 邮件通知配置
+- `EMAIL_SMTP_SERVER`: SMTP服务器地址
+- `EMAIL_SMTP_PORT`: SMTP端口（默认465，SSL）
+- `EMAIL_SENDER`: 发件人邮箱
+- `EMAIL_PASSWORD`: 发件人密码
+- `EMAIL_RECIPIENTS`: 收件人列表（逗号分隔）
+
+### 自动化配置
+- `update_interval`: 更新检查间隔（默认24小时）
+- 错误重试：发生错误时自动等待1分钟后重试
+- 支持后台运行：使用 nohup 或系统服务
+
+## 使用说明
+
+### 自动报告生成
+- 程序会按配置的时间间隔自动检查更新
+- 发现更新时自动生成报告
+- 生成的报告会自动发送到配置的邮箱
+- 同时保存在 exports 目录下
+
+### 邮件通知
+- 支持 HTML 格式，自动渲染 Markdown
+- 包含仓库名称和时间信息
+- 支持表情符号和链接
+- 可通过环境变量配置多个收件人
 
 ## 注意事项
 
-1. 首次使用需要配置：
-   - GitHub Token
-   - OpenAI API Key（用于 AI 摘要）
-   - 订阅仓库列表
-
-2. Web 界面特性：
-   - 支持 emoji 和 markdown 链接的正确显示
-   - 报告内容自动滚动
-   - 响应式布局适配
-
-3. 时间范围查询：
-   - 单天查询：只填写 Since Date
-   - 时间段查询：同时填写 Since Date 和 Until Date
-   - 日期格式：YYYY-MM-DD
+1. 确保 GitHub Token 具有足够的权限
+2. OpenAI API 需要稳定的网络连接
+3. 邮件服务器需要正确的 SSL 配置
+4. 建议使用系统服务或 supervisor 确保程序持续运行
+5. 定期检查日志文件了解运行状态
 
 ## 常见问题
 
-1. 如何修改服务端口？
-   - 修改 `gradio_server.py` 中的 `server_port` 参数
+1. 邮件发送失败？
+   - 检查 SMTP 配置是否正确
+   - 确认端口是否支持 SSL
+   - 验证密码是否正确
+   - 检查防火墙设置
 
-2. 如何允许外部访问？
-   - 默认监听 0.0.0.0，允许外部访问
-   - 确保防火墙允许对应端口访问
+2. 自动更新没有运行？
+   - 检查程序是否在后台运行
+   - 确认配置的时间间隔是否正确
+   - 查看日志文件是否有错误信息
 
-3. 报告未显示？
-   - 检查日期格式是否正确
-   - 确认选择的时间范围内是否有更新
-   - 查看控制台是否有错误信息
-
-## 贡献指南
-
-[原有的贡献指南保持不变...]
-
-## 许可证
-
-[原有的许可证信息保持不变...]
+3. 如何修改更新频率？
+   - 在 `config.json` 中修改 `update_interval` 值
+   - 单位为秒，默认86400（24小时）
