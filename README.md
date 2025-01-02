@@ -2,9 +2,16 @@
 
 GitHub 仓库更新监控和报告生成工具
 
+![GitHubSentinel](https://idoge.0xhit.top/api/static/uploads-2/9b5d922a329d4f08b4a1052f64deabe3.jpeg)
+
 ## 最近更新
 
-### 2024年1月
+### 2025年1月
+- 📧 新增 HackerNews 功能
+  - 实时获取 HackerNews 热门新闻
+  - AI 自动翻译新闻标题
+  - 生成中英文趋势分析报告
+  - 支持语言切换和新闻数量调整
 - 📧 新增邮件推送功能
   - 支持 HTML 邮件，自动渲染 Markdown 内容
   - SSL 加密连接确保安全性
@@ -21,6 +28,11 @@ GitHub 仓库更新监控和报告生成工具
 - 📊 自动监控 GitHub 仓库更新
 - 📝 生成结构化的更新报告
 - 🤖 使用 GPT 生成更新摘要
+- 📧 HackerNews 集成
+  - 实时获取热门技术新闻
+  - AI 自动翻译标题
+  - 智能趋势分析
+  - 中英文双语支持
 - 📧 邮件通知功能
   - SSL 加密连接
   - Markdown 转 HTML 渲染
@@ -101,6 +113,25 @@ python src/gradio_server.py
 - 支持后台运行：使用 nohup 或系统服务
 
 ## 使用说明
+
+### HackerNews 功能
+![hackernews](https://idoge.0xhit.top/api/static/uploads-2/291df91f46884c80aa842422d26ab68e.jpeg)
+
+- 在 Web 界面的 HackerNews 标签页中使用
+- 可调整获取的新闻数量（10-100条）
+- 支持中英文切换
+- 每条新闻显示：
+  - 标题（中文/英文）
+  - 评分和评论数
+  - 原文和评论链接
+- AI 分析报告包含：
+  - 热门话题概述
+  - 技术趋势分析
+  - 社区关注重点
+  - 新兴趋势预测
+  - 支持多语言切换
+
+
 
 ### 自动报告生成
 - 程序会按配置的时间间隔自动检查更新

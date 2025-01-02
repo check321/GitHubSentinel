@@ -6,7 +6,24 @@ from report_generator import ReportGenerator
 from subscription_manager import SubscriptionManager
 from llm import LLMProcessor
 from notifier import Notifier
+from hacker_news_client import HackerNewsClient
 import os
+import logging
+
+# 配置日志记录
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
+# 创建控制台处理器
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.DEBUG)
+
+# 创建格式化器
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+console_handler.setFormatter(formatter)
+
+# 添加处理器到日志记录器
+logger.addHandler(console_handler)
 
 class GradioUI:
     def __init__(self):
@@ -17,6 +34,8 @@ class GradioUI:
         self.subscription_manager = SubscriptionManager(self.config.subscriptions_file)
         self.llm_processor = LLMProcessor(self.config)
         self.notifier = Notifier(self.config.notification_settings)
+        self.hacker_news_client = HackerNewsClient(config=self.config)
+        logger.info("GradioUI initialized with all components")
 
     def load_subscriptions(self) -> list:
         """加载订阅列表"""
@@ -156,6 +175,76 @@ class GradioUI:
         except Exception as e:
             return f"❌ 邮件发送出错: {str(e)}"
 
+    def get_hacker_news(self, limit: int = 30, lang: str = "zh") -> str:
+        """获取HackerNews新闻列表并格式化为Markdown
+        
+        Args:
+            limit: 获取的新闻数量
+            lang: 语言选择 (zh/en)
+            
+        Returns:
+            str: Markdown格式的新闻列表
+        """
+        try:
+            logger.info("Attempting to fetch HackerNews with limit: %d, language: %s", limit, lang)
+            result = self.hacker_news_client.get_news_list(limit=limit, generate_report=True)
+            
+            news_list = result.get("news", [])
+            if not news_list:
+                logger.warning("No news items returned from HackerNews client")
+                return "获取新闻失败或没有新闻。" if lang == "zh" else "Failed to fetch news or no news available."
+            
+            logger.info("Successfully fetched %d news items, formatting as Markdown", len(news_list))
+            
+            # 格式化为Markdown
+            content = []
+            
+            if lang == "zh":
+                # 中文版本
+                if result.get("reports", {}).get("zh"):
+                    content.extend([
+                        "# 📊 HackerNews 趋势分析",
+                        result["reports"]["zh"],
+                        "\n---\n"
+                    ])
+                
+                content.append("# 📰 HackerNews 热门新闻\n")
+                
+                for i, news in enumerate(news_list, 1):
+                    # 使用中文标题（如果有）
+                    title = news.get('title_zh', news['title'])
+                    content.append(f"### {i}. {title}")
+                    content.append(f"- 🔗 [阅读原文]({news['url']})")
+                    content.append(f"- 📊 评分: {news['score']}")
+                    content.append(f"- 💬 [{news['comments_count']}条评论]({news['comments_url']})")
+                    # 如果有原标题且与中文标题不同，显示原标题
+                    if news.get('title_zh') and news['title_zh'] != news['title']:
+                        content.append(f"- 📝 原标题: {news['title']}")
+                    content.append("")  # 空行分隔
+            else:
+                # 英文版本
+                if result.get("reports", {}).get("en"):
+                    content.extend([
+                        "# 📊 HackerNews Trend Analysis",
+                        result["reports"]["en"],
+                        "\n---\n"
+                    ])
+                
+                content.append("# 📰 HackerNews Top Stories\n")
+                
+                for i, news in enumerate(news_list, 1):
+                    content.append(f"### {i}. {news['title']}")
+                    content.append(f"- 🔗 [Read More]({news['url']})")
+                    content.append(f"- 📊 Score: {news['score']}")
+                    content.append(f"- 💬 [{news['comments_count']} comments]({news['comments_url']})")
+                    content.append("")  # 空行分隔
+            
+            return "\n".join(content)
+            
+        except Exception as e:
+            logger.error("Error in get_hacker_news: %s", str(e), exc_info=True)
+            return f"获取HackerNews失败: {str(e)}" if lang == "zh" else f"Failed to fetch HackerNews: {str(e)}"
+
     def create_ui(self):
         """创建Gradio界面"""
         # 获取默认日期（昨天）
@@ -225,6 +314,38 @@ class GradioUI:
                                 label="Report Output",
                                 value="Report will be displayed here...",
                                 show_label=True,
+                                elem_classes="output-markdown"
+                            )
+                
+                # HackerNews标签页
+                with gr.Tab("HackerNews"):
+                    with gr.Row():
+                        with gr.Column(scale=1):
+                            # 新闻数量滑块
+                            news_limit = gr.Slider(
+                                minimum=10,
+                                maximum=100,
+                                value=30,
+                                step=10,
+                                label="新闻数量",
+                                info="选择要获取的新闻数量"
+                            )
+                            
+                            # 语言选择
+                            lang_select = gr.Radio(
+                                choices=["中文", "English"],
+                                value="中文",
+                                label="语言 / Language",
+                                info="选择报告语言"
+                            )
+                            
+                            # 获取新闻按钮
+                            get_news_btn = gr.Button("🔄 获取最新新闻", variant="primary")
+                            
+                        with gr.Column(scale=3):
+                            # 新闻展示区域
+                            news_output = gr.Markdown(
+                                value="点击获取按钮加载最新新闻...",
                                 elem_classes="output-markdown"
                             )
                 
@@ -427,6 +548,17 @@ class GradioUI:
                 fn=lambda: "邮件发送结果将显示在这里...",
                 inputs=[],
                 outputs=email_result
+            )
+            
+            # 绑定HackerNews标签页事件
+            def get_news_with_lang(limit, lang_choice):
+                lang = "zh" if lang_choice == "中文" else "en"
+                return self.get_hacker_news(limit=limit, lang=lang)
+            
+            get_news_btn.click(
+                fn=get_news_with_lang,
+                inputs=[news_limit, lang_select],
+                outputs=[news_output]
             )
             
         return interface
